@@ -354,6 +354,7 @@ class Upgrader:
                 if len(valid_y_locs) > 0:
                     discounted_locs = Frame_Handler.locate(self.assets["green_tag"], menu, thresh=0.80, grayscale=False, normalize=False, return_all=True)
                     for x, y in discounted_locs:
+                        if len(valid_y_locs) == 0: break
                         y_global = y / WINDOW_DIMS[1] + menu_top
                         min_idx = np.argmin(abs(valid_y_locs - y_global))
                         if abs(valid_y_locs[min_idx] - y_global) < 0.02:
@@ -583,6 +584,7 @@ class Upgrader:
                 discounted_locs = Frame_Handler.locate(self.assets["green_tag"], menu, thresh=0.80, grayscale=False, return_all=True, normalize=False)
                 discounted_upgrades = []
                 for x, y in discounted_locs:
+                    if len(potential_y_locs) == 0: break
                     y_global = y / WINDOW_DIMS[1] + menu_top
                     min_idx = np.argmin(abs(potential_y_locs - y_global))
                     if abs(potential_y_locs[min_idx] - y_global) < 0.02:
@@ -783,6 +785,7 @@ class Upgrader:
                 discounted_locs = Frame_Handler.locate(self.assets["green_tag"], menu, thresh=0.80, grayscale=False, return_all=True, normalize=False)
                 discounted_upgrades = []
                 for x, y in discounted_locs:
+                    if len(potential_y_locs) == 0: break
                     y_global = y / WINDOW_DIMS[1] + menu_top
                     min_idx = np.argmin(abs(potential_y_locs - y_global))
                     if abs(potential_y_locs[min_idx] - y_global) < 0.02:
@@ -954,6 +957,7 @@ class Upgrader:
                 discounted_locs = Frame_Handler.locate(self.assets["green_tag"], menu, thresh=0.80, grayscale=False, return_all=True, normalize=False)
                 discounted_upgrades = []
                 for x, y in discounted_locs:
+                    if len(potential_y_locs) == 0: break
                     y_global = y / WINDOW_DIMS[1] + menu_top
                     min_idx = np.argmin(abs(potential_y_locs - y_global))
                     if abs(potential_y_locs[min_idx] - y_global) < 0.02:
