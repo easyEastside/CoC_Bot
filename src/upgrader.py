@@ -350,6 +350,16 @@ class Upgrader:
                 # Choose an upgrade
                 valid_y_locs = [y for y in potential_y_locs if min(abs(invalid_y_locs - y)) > 0.02]
 
+                # Ignore New upgrades since logic is not implemented
+                new_locs = Frame_Handler.locate(render_text("New", "CCBackBeat", 27, color=(13, 255, 13)), filter_color((13, 255, 13), menu), thresh=0.70, grayscale=False, ref="lc", normalize=False, return_all=True)
+                for x, y in new_locs:
+                    if len(potential_y_locs) == 0: return None, None
+                    y_global = y / WINDOW_DIMS[1] + menu_top
+                    min_idx = np.argmin(abs(potential_y_locs - y_global))
+                    if abs(potential_y_locs[min_idx] - y_global) < 0.02:
+                        potential_y_locs = np.delete(potential_y_locs, min_idx)
+
+                # Prioritize discounted upgrades
                 discounted_upgrades = []
                 if len(valid_y_locs) > 0:
                     discounted_locs = Frame_Handler.locate(self.assets["green_tag"], menu, thresh=0.80, grayscale=False, normalize=False, return_all=True)
@@ -361,7 +371,6 @@ class Upgrader:
                             discounted_upgrades.append(valid_y_locs[min_idx])
                             valid_y_locs = np.delete(valid_y_locs, min_idx)
 
-                # Prioritize discounted upgrades
                 if len(discounted_upgrades) > 0:
                     x_upgrade, y_upgrade = menu_center, np.random.choice(discounted_upgrades)
                 elif len(valid_y_locs) > 0:
@@ -780,6 +789,15 @@ class Upgrader:
                 if len(potential_y_locs) == 0: return None, None
                 potential_y_locs = potential_y_locs / WINDOW_DIMS[1] + menu_top
                 if y_sug is not None: potential_y_locs = potential_y_locs[potential_y_locs > y_sug]
+                
+                # Ignore New upgrades since logic is not implemented
+                new_locs = Frame_Handler.locate(render_text("New", "CCBackBeat", 27, color=(13, 255, 13)), filter_color((13, 255, 13), menu), thresh=0.70, grayscale=False, ref="lc", normalize=False, return_all=True)
+                for x, y in new_locs:
+                    if len(potential_y_locs) == 0: return None, None
+                    y_global = y / WINDOW_DIMS[1] + menu_top
+                    min_idx = np.argmin(abs(potential_y_locs - y_global))
+                    if abs(potential_y_locs[min_idx] - y_global) < 0.02:
+                        potential_y_locs = np.delete(potential_y_locs, min_idx)
                 
                 # Determine discounted upgrades
                 discounted_locs = Frame_Handler.locate(self.assets["green_tag"], menu, thresh=0.80, grayscale=False, return_all=True, normalize=False)
