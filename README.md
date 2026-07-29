@@ -33,7 +33,7 @@
     * Device profile: Samsung Galaxy S22 Ultra
     * Display resolution: 1920 x 1080
     * Frame rate: 60 (__NOTE__: Inconsistent touch events at lower fps)
-    * Enable Android Debug Bridge
+    * Enable Android Debug Bridge in "Advanced" settings
     * In Multi-Instance Manager, rename instances to match instance IDs in `configs.py` (the default ID is main, see steps 3 and 6 in [Custom Setup Instructions](#custom-setup-instructions-recommended) for more details)
     * Install Clash of Clans from Google Play
         * Default troop deployment size
