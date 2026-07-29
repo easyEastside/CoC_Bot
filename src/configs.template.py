@@ -14,7 +14,6 @@ GROQ_API_KEY = ""
 
 # REQUIRED: Instance Settings
 INSTANCE_IDS = ["main"]
-ADB_ADDRESSES = ["127.0.0.1:5555"] # Bluestacks ADB addresses in order of instance IDs
 DEFAULT_INSTANCE_ID = INSTANCE_IDS[0]
 
 # REQUIRED: General Settings

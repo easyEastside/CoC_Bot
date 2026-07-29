@@ -48,7 +48,8 @@ def init_instance(id):
     
     assert id in configs.INSTANCE_IDS, f"Invalid instance ID. Must be one of: {configs.INSTANCE_IDS}"
     INSTANCE_ID = id
-    ADB_ADDRESS = configs.ADB_ADDRESSES[configs.INSTANCE_IDS.index(id)]
+    if configs.AUTO_START_BLUESTACKS: BlueStacks_Manager.init()
+    ADB_ADDRESS = BlueStacks_Manager.adb_address
     if WEB_APP_URL != "":
         if "pythonanywhere.com" in WEB_APP_URL:
             Scheduler.add_job(extend_pythonanywhere_hosting, args=(configs.PA_USERNAME, configs.PA_PASSWORD), trigger="interval", hours=24)
@@ -684,11 +685,14 @@ class BlueStacks_Manager:
     """
     
     _internal_instance_name = None
+    _adb_port = None
     _mim_path = None
+    _conf_path = None
     
     @classmethod
     def init(cls):
         Exit_Handler.register(cls.stop)
+        cls.restart()
     
     @classproperty
     def internal_instance_name(cls, instance_id=None):
@@ -719,10 +723,42 @@ class BlueStacks_Manager:
         
         return cls._internal_instance_name
     
+    @classproperty
+    def adb_port(cls):
+        if cls._adb_port is not None:
+            return cls._adb_port
+
+        if cls._conf_path is None or not Path(cls._conf_path).exists():
+            if sys.platform == "darwin":
+                cls._conf_path = "/Users/Shared/Library/Application Support/BlueStacks/bluestacks.conf"
+            elif sys.platform == "win32":
+                cls._conf_path = r"C:\ProgramData\BlueStacks_nxt\bluestacks.conf"
+            else:
+                raise Exception("Unsupported OS")
+            if cls._conf_path is None or not Path(cls._conf_path).exists():
+                cls._conf_path = file_search("/", "bluestacks.conf", ["bluestacks"])
+
+        if cls._adb_port is None and cls._conf_path is not None:
+            if cls._conf_path is not None and Path(cls._conf_path).exists():
+                conf_data = Path(cls._conf_path).read_text()
+                for line in conf_data.splitlines():
+                    if line.startswith(f"bst.instance.{cls.internal_instance_name}.adb_port"):
+                        cls._adb_port = line.split("=")[1].strip().replace('"', '')
+                        break
+            else:
+                if configs.DEBUG: print("bluestacks.conf not found, using default adb port.")
+                cls._adb_port = "5555"
+
+        return cls._adb_port
+
+    @classproperty
+    def adb_address(cls):
+        return f"127.0.0.1:{cls.adb_port}"
+
     @classmethod
     def check(cls):
         try:
-            ADB_Manager.connect_once()
+            ADB_Manager.connect_once(cls.adb_address)
             return True
         except (KeyboardInterrupt, SystemExit): raise
         except: return False
