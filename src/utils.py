@@ -454,6 +454,9 @@ def start_coc(timeout=60):
         if not running(): return False
         to_system_home()
         print("Starting CoC...", datetime.now().strftime("%I:%M:%S %p %m-%d-%Y"))
+
+        cont_templates = [render_text("Continue", "SupercellMagic", s, color=(255, 255, 255)) for s in range(25, 31)]
+
         i = 0
         start = time.time()
         while time.time() - start < timeout:
@@ -477,9 +480,10 @@ def start_coc(timeout=60):
             except (KeyboardInterrupt, SystemExit): raise
             except: pass
             
-            cont_x, cont_y = Frame_Handler.locate(Asset_Manager.misc_assets["continue"], grayscale=False, thresh=0.8, ref="cc", use_cached=True)
-            if cont_x is not None and cont_y is not None:
-                Input_Handler.click(cont_x, cont_y)
+            cont_locs = Frame_Handler.batch_locate(cont_templates, grayscale=True, thresh=0.7, ref="cc", use_cached=True)
+            for x, y in cont_locs:
+                if x is not None and y is not None:
+                    Input_Handler.click(x, y)
             
             update_coc(timeout=5, from_in_game=True)
             
@@ -1506,10 +1510,10 @@ class Frame_Handler:
 
 class Dev_Tools:
     @classmethod
-    def optimal_template_font_size(cls, frame, text, font, font_size_range=(1, 100), color=(255, 255, 255), return_results=False, plot_results=False):
+    def optimal_template_font_size(cls, frame, text, font, font_size_range=(1, 100), color=(255, 255, 255), grayscale=True, return_results=False, plot_results=False):
         import numpy as np, matplotlib.pyplot as plt
         templates = [render_text(text, font, size, color) for size in range(font_size_range[0], font_size_range[1] + 1)]
-        results = Frame_Handler.batch_locate(templates, frame=frame, grayscale=True, return_confidence=True)
+        results = Frame_Handler.batch_locate(templates, frame=frame, grayscale=grayscale, return_confidence=True)
         confidences = [res[2] for res in results]
         optimal_size = confidences.index(max(confidences)) + font_size_range[0]
         
