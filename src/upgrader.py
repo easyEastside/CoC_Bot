@@ -7,16 +7,6 @@ except:
     from configs_build import *
 
 class Upgrader:
-    
-    hero_names = [
-        "Barbarian King",
-        "Archer Queen",
-        "Minion Prince",
-        "Grand Warden",
-        "Royal Champion",
-        "Dragon Duke"
-    ]
-    
     def __init__(self):
         self.assets = Asset_Manager.upgrader_assets
         self.misc_assets = Asset_Manager.misc_assets
@@ -201,12 +191,12 @@ class Upgrader:
         h, w = template.shape[:2]
         return template, w / WINDOW_DIMS[0], h / WINDOW_DIMS[1]
 
-    def _get_upgrade_name(self):
+    def _get_upgrade_name(self, categories=["all"]):
         import re
         x, y = Frame_Handler.locate(self.assets["upgrade_name"], ref="lc", thresh=0.9)
         section = Frame_Handler.get_frame_section(x+0.122, y-0.04, 1-x, y+0.035, high_contrast=True, thresh=255, use_cached=True)
         if configs.DEBUG: Frame_Handler.save_frame(section, "debug/upgrade_name.png")
-        upgrade_name = spell_check(re.sub(r"\s*x\d+$", "", OCR_Handler.get_text(section)[0].lower()[:-3]))
+        upgrade_name = spell_check(re.sub(r"\s*x\d+$", "", OCR_Handler.get_text(section)[0].lower()[:-3]), categories, phrase_level=True)
         return upgrade_name
 
     def _get_upgrade_menu(self, frame, sug_loc, sug_width, return_bounds=False):
@@ -324,7 +314,8 @@ class Upgrader:
                 self._scroll_to_menu_bottom(menu_left, menu_right, menu_top, menu_bottom)
             
             town_hall_template = [render_text("Town Hall", "CCBackBeat", 27)]
-            hero_templates = [render_text(hero, "SupercellMagic", 19) for hero in self.hero_names]
+            hero_templates = [render_text(text, "CCBackBeat", 27) for text in Cache_Manager.get("vocab", get_vocab())["heroes"]]
+            seasonal_defense_templates = [render_text(text, "CCBackBeat", 27) for text in Cache_Manager.get("vocab", get_vocab())["buildings/seasonal-defense"]]
             heros_excluded = Task_Handler.heroes_excluded()
             
             def locate_upgrade():
@@ -339,14 +330,17 @@ class Upgrader:
                 if y_sug is not None: potential_y_locs = potential_y_locs[potential_y_locs > y_sug]
                 
                 # Locate invalid upgrades
-                locs = Frame_Handler.batch_locate(town_hall_template + hero_templates, menu, thresh=0.80, ref="lc", null_val=-1, grayscale=True, normalize=False)
-                town_hall_loc = locs[0]
-                hero_locs = locs[1:]
-                invalid_locs = [town_hall_loc]
+                invalid_templates = town_hall_template + hero_templates + seasonal_defense_templates
+                locs = Frame_Handler.batch_locate(invalid_templates, menu, thresh=0.75, ref="lc", null_val=-1, grayscale=True, normalize=False, return_all=True)
+                town_hall_loc, hero_locs, seasonal_defense_locs = chunk_list(locs, [1, len(hero_templates), len(seasonal_defense_templates)])
+                flat_seasonal_defense_locs = []
+                for locs in seasonal_defense_locs: flat_seasonal_defense_locs += locs
+                invalid_locs = town_hall_loc[0] + flat_seasonal_defense_locs
+                town_hall_loc = town_hall_loc[0]
                 if heros_excluded:
-                    invalid_locs += hero_locs
+                    for locs in hero_locs: invalid_locs += locs
                 invalid_y_locs = np.array(invalid_locs)[:, 1] / WINDOW_DIMS[1] + menu_top
-                
+
                 # Choose an upgrade
                 valid_y_locs = [y for y in potential_y_locs if min(abs(invalid_y_locs - y)) > 0.02]
 
@@ -354,6 +348,7 @@ class Upgrader:
                 new_locs = Frame_Handler.locate(render_text("New", "CCBackBeat", 27, color=(13, 255, 13)), filter_color((13, 255, 13), menu), thresh=0.70, grayscale=False, ref="lc", normalize=False, return_all=True)
                 for x, y in new_locs:
                     if len(potential_y_locs) == 0: return None, None
+                    if x is None or y is None: continue
                     y_global = y / WINDOW_DIMS[1] + menu_top
                     min_idx = np.argmin(abs(potential_y_locs - y_global))
                     if abs(potential_y_locs[min_idx] - y_global) < 0.02:
@@ -365,6 +360,7 @@ class Upgrader:
                     discounted_locs = Frame_Handler.locate(self.assets["green_tag"], menu, thresh=0.80, grayscale=False, normalize=False, return_all=True)
                     for x, y in discounted_locs:
                         if len(valid_y_locs) == 0: break
+                        if x is None or y is None: continue
                         y_global = y / WINDOW_DIMS[1] + menu_top
                         min_idx = np.argmin(abs(valid_y_locs - y_global))
                         if abs(valid_y_locs[min_idx] - y_global) < 0.02:
@@ -409,7 +405,12 @@ class Upgrader:
                 time.sleep(0.5)
             
             # Get upgrade name
-            upgrade_name = self._get_upgrade_name()
+            upgrade_name = self._get_upgrade_name([
+                "buildings/home-village",
+                "traps/home-village",
+                "heroes",
+                "guardians",
+            ])
             
             # Click confirm button
             if not self._click_home_confirm(): return None
@@ -428,7 +429,7 @@ class Upgrader:
             # Render templates
             if type(upgrade_text) == str: upgrade_text = [upgrade_text]
             if Task_Handler.heroes_excluded():
-                upgrade_text = list(set(upgrade_text) - set(self.hero_names))
+                upgrade_text = list(set(upgrade_text) - set(Cache_Manager.get("vocab", get_vocab())["heroes"]))
             if len(upgrade_text) == 0: return None
             templates = [render_text(text, "CCBackBeat", 27) for text in upgrade_text]
             np.random.shuffle(templates)
@@ -501,7 +502,12 @@ class Upgrader:
                 time.sleep(0.5)
             
             # Get upgrade name
-            upgrade_name = self._get_upgrade_name()
+            upgrade_name = self._get_upgrade_name([
+                "buildings/home-village",
+                "traps/home-village",
+                "heroes",
+                "guardians",
+            ])
             
             # Click confirm button
             if not self._click_home_confirm(): return None
@@ -534,6 +540,7 @@ class Upgrader:
             xys = sorted(xys, key=lambda pair: pair[1])
             if len(xys) == 0: return
             x, y = xys[0]
+            if x is None or y is None: return
 
             Input_Handler.click(x, y)
             time.sleep(0.5)
@@ -543,6 +550,7 @@ class Upgrader:
             if len(xys) == 0: return
             
             x, y = sorted(xys, key=lambda pair: pair[1])[0]
+            if x is None or y is None: return
             
             Input_Handler.click(x, y)
             time.sleep(0.5)
@@ -594,6 +602,7 @@ class Upgrader:
                 discounted_upgrades = []
                 for x, y in discounted_locs:
                     if len(potential_y_locs) == 0: break
+                    if x is None or y is None: continue
                     y_global = y / WINDOW_DIMS[1] + menu_top
                     min_idx = np.argmin(abs(potential_y_locs - y_global))
                     if abs(potential_y_locs[min_idx] - y_global) < 0.02:
@@ -618,7 +627,10 @@ class Upgrader:
             time.sleep(0.5)
             
             # Get upgrade name
-            upgrade_name = self._get_upgrade_name()
+            upgrade_name = self._get_upgrade_name([
+                "troops",
+                "spells",
+            ])
 
             # Click confirm button
             if not self._click_home_confirm(): return None
@@ -702,7 +714,10 @@ class Upgrader:
             time.sleep(0.5)
             
             # Get upgrade name
-            upgrade_name = self._get_upgrade_name()
+            upgrade_name = self._get_upgrade_name([
+                "troops",
+                "spells",
+            ])
             
             # Click confirm button
             if not self._click_home_confirm(): return None
@@ -735,6 +750,7 @@ class Upgrader:
             xys = sorted(xys, key=lambda pair: pair[1])
             if len(xys) == 0: return
             x, y = xys[0]
+            if x is None or y is None: return
             
             Input_Handler.click(x, y)
             time.sleep(0.5)
@@ -744,6 +760,7 @@ class Upgrader:
             if len(xys) == 0: return
             
             x, y = sorted(xys, key=lambda pair: pair[1])[0]
+            if x is None or y is None: return
             
             Input_Handler.click(x, y)
             time.sleep(0.5)
@@ -794,6 +811,7 @@ class Upgrader:
                 new_locs = Frame_Handler.locate(render_text("New", "CCBackBeat", 27, color=(13, 255, 13)), filter_color((13, 255, 13), menu), thresh=0.70, grayscale=False, ref="lc", normalize=False, return_all=True)
                 for x, y in new_locs:
                     if len(potential_y_locs) == 0: return None, None
+                    if x is None or y is None: continue
                     y_global = y / WINDOW_DIMS[1] + menu_top
                     min_idx = np.argmin(abs(potential_y_locs - y_global))
                     if abs(potential_y_locs[min_idx] - y_global) < 0.02:
@@ -804,6 +822,7 @@ class Upgrader:
                 discounted_upgrades = []
                 for x, y in discounted_locs:
                     if len(potential_y_locs) == 0: break
+                    if x is None or y is None: continue
                     y_global = y / WINDOW_DIMS[1] + menu_top
                     min_idx = np.argmin(abs(potential_y_locs - y_global))
                     if abs(potential_y_locs[min_idx] - y_global) < 0.02:
@@ -827,7 +846,7 @@ class Upgrader:
             
             # Get upgrade name
             section = Frame_Handler.high_contrast(Frame_Handler.get_frame_section(menu_left, y_upgrade - 0.035, menu_center, y_upgrade + 0.025))
-            upgrade_name = spell_check(re.sub(r"\s*x\d+$", "", OCR_Handler.get_text(section)[0].lower()))
+            upgrade_name = spell_check(re.sub(r"\s*x\d+$", "", OCR_Handler.get_text(section)[0].lower()), ["buildings/builder-base", "traps/builder-base"], phrase_level=True)
             
             # Select upgrade
             Input_Handler.click(x_upgrade, y_upgrade)
@@ -976,6 +995,7 @@ class Upgrader:
                 discounted_upgrades = []
                 for x, y in discounted_locs:
                     if len(potential_y_locs) == 0: break
+                    if x is None or y is None: continue
                     y_global = y / WINDOW_DIMS[1] + menu_top
                     min_idx = np.argmin(abs(potential_y_locs - y_global))
                     if abs(potential_y_locs[min_idx] - y_global) < 0.02:
@@ -999,7 +1019,7 @@ class Upgrader:
             
             # Get upgrade name
             section = Frame_Handler.high_contrast(Frame_Handler.get_frame_section(menu_left, y_upgrade - 0.035, menu_center, y_upgrade + 0.025))
-            upgrade_name = spell_check(re.sub(r"\s*x\d+$", "", OCR_Handler.get_text(section)[0].lower()))
+            upgrade_name = spell_check(re.sub(r"\s*x\d+$", "", OCR_Handler.get_text(section)[0].lower()), "troops", phrase_level=True)
             
             # Select upgrade
             Input_Handler.click(x_upgrade, y_upgrade)

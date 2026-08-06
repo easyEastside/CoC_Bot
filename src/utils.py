@@ -159,6 +159,15 @@ def click_with_timeout(locator_func, timeout=1, interval=0.1):
         return True
     return False
 
+def chunk_list(target_list, chunk_sizes):
+    chunks = []
+    start = 0
+    for size in chunk_sizes:
+        end = start + size
+        chunks.append(target_list[start:end])
+        start = end
+    return chunks
+
 def check_color(color, frame, tol=10):
     import numpy as np
     assert len(frame.shape) == 3 and frame.shape[2] == 3, "Frame must be a color image"
@@ -176,45 +185,50 @@ def filter_color(color, frame, tol=10, return_mask=False):
     return frame_filtered
 
 def get_vocab():
-    from bs4 import BeautifulSoup
-    from curl_cffi import requests as curl_requests
-    
-    vocab = set()
-    
-    other_words = [
-        "prince",
-        "copter",
+    from github import Github
+    from pathlib import PurePosixPath
+
+    target_dirs = [
+        "buildings/builder-base",
+        "buildings/home-village",
+        "buildings/seasonal-defense",
+        "traps/builder-base",
+        "traps/home-village",
+        "troops",
+        "spells",
+        "heroes",
+        "guardians",
+        "pets",
     ]
 
-    endpoints = [
-        "A-I",
-        "J-P",
-        "Q-Z",
-    ]
+    g = Github(timeout=5, retry=None)
 
-    for endpoint in endpoints:
-        # Bypass bot detection
-        res = curl_requests.get(
-            f"https://clashofclans.fandom.com/wiki/Glossary/{endpoint}",
-            timeout=(10, 20),
-            impersonate="chrome",
-        )
-        if res.status_code == 200:
-            soup = BeautifulSoup(res.text, "lxml")
-            elements = soup.select("h3 span.mw-headline")
-            for e in elements:
-                words = [s for s in e.text.lower().split(" ") if len(s) > 2]
-                vocab = vocab.union(words)
-        else:
-            raise Exception("Failed to update vocabulary")
-    
-    vocab = vocab.union(other_words)
-    text = sorted(list(vocab))
-    Cache_Manager["vocab"] = text
-    
-    return list(vocab)
+    try:
+        repo = g.get_repo("ClashKingInc/ClashKingAssets")
+    except (KeyboardInterrupt, SystemExit): raise
+    except:
+        return Cache_Manager.get("vocab", {})
 
-def spell_check(text, cutoff=70):
+    branch = repo.get_branch(repo.default_branch)
+    tree = repo.get_git_tree(branch.commit.sha, recursive=True)
+
+    file_structure = [element.path for element in tree.tree]
+
+    parsed_paths = [PurePosixPath(p) for p in file_structure]
+
+    def format_name(file_path):
+        return file_path.stem.replace("_", " ").title()
+
+    data = {
+        d: [format_name(p) for p in parsed_paths if p.parent == PurePosixPath("assets") / d]
+        for d in target_dirs
+    }
+    
+    Cache_Manager["vocab"] = data
+    
+    return data
+
+def spell_check(text, vocab_categories=["all"], phrase_level=False, cutoff=70):
     import re
     from rapidfuzz import process, distance
     
@@ -225,13 +239,29 @@ def spell_check(text, cutoff=70):
         return score if score >= score_cutoff else 0
     
     vocab = Cache_Manager.get("vocab", get_vocab())
-    words = re.split(r"[ _]+", text)
-    results = []
+    if isinstance(vocab_categories, str):
+        vocab_categories = [vocab_categories]
+    temp = []
+    if "all" in vocab_categories:
+        for cat in vocab: temp.extend(vocab[cat])
+    else:
+        for cat in vocab_categories:
+            if cat in vocab: temp.extend(vocab[cat])
+    vocab = temp
+    for i in range(len(vocab)): vocab[i] = vocab[i].lower()
+    
+    keys = []
+    if phrase_level:
+        keys = [text.lower()]
+    else:
+        keys = re.split(r"[ _]+", text.lower())
+        vocab = " ".join(vocab).split()
 
-    for word in words:
-        suggestion = word
-        if word not in vocab:
-            match = process.extractOne(word, vocab, scorer=spell_scorer, score_cutoff=cutoff)
+    results = []
+    for key in keys:
+        suggestion = key
+        if key not in vocab:
+            match = process.extractOne(key, vocab, scorer=spell_scorer, score_cutoff=cutoff)
             if match is not None: suggestion = match[0]
         results.append(suggestion)
 
@@ -1475,6 +1505,7 @@ class Frame_Handler:
                     results.append((x_loc / nw, y_loc / nh, float(val)))
                 else:
                     results.append((x_loc / nw, y_loc / nh))
+            if len(results) == 0: results = [(null_val, null_val, 0)] if return_confidence else [(null_val, null_val)]
 
             results.sort(key=lambda r: r[-1] if return_confidence else 0, reverse=True)
             return results

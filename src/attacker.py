@@ -51,6 +51,7 @@ class Attacker:
             if len(xys) == 0: return None, None
             xys = sorted(xys, key=lambda xy: xy[0])
             x, y = xys[0]
+            if x is None or y is None: return None, None
             if x > 0.2: return None, None
             return x, y
         if not click_with_timeout(
