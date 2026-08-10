@@ -1,10 +1,10 @@
 <h1 align="center">Clash of Clans Bot</h1>
 <p align="center">
-    <a href="https://youtu.be/RTaFCiD5v3o">
+    <a href="media/CoC_Bot_Demo_Updated.mp4">
         <img src="media/Cover_Image.png" alt="Cover Image" width="25%">
     </a>
     <br>
-    <a href="https://youtu.be/RTaFCiD5v3o">Click for Demo Video</a>
+    <a href="media/CoC_Bot_Demo_Updated.mp4">Click for Demo Video</a>
 </p>
 
 ## Automated Features (Both Villages)
